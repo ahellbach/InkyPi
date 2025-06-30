@@ -8,7 +8,14 @@ import tempfile
 import subprocess
 
 logger = logging.getLogger(__name__)
-
+protected_colors = {
+    (0, 0, 0),          # Black
+    (255, 255, 255),    # White
+    (255, 255, 0),      # Yellow
+    (255, 0, 0),        # Red
+    (0, 0, 255),        # Blue
+    (0, 255, 0)         # Green
+}
 def get_image(image_url):
     response = requests.get(image_url)
     img = None
@@ -61,18 +68,24 @@ def resize_image(image, desired_size, image_settings=[]):
     return cropped_image.resize((desired_width, desired_height), Image.LANCZOS)
 
 def apply_image_enhancement(img, image_settings={}):
+    # Ensure image is in RGB
+    img = img.convert("RGB")
+    original_pixels = img.copy().load()
 
-    # Apply Brightness
+    # Apply global enhancements
     img = ImageEnhance.Brightness(img).enhance(image_settings.get("brightness", 1.0))
-
-    # Apply Contrast
     img = ImageEnhance.Contrast(img).enhance(image_settings.get("contrast", 1.0))
-
-    # Apply Saturation (Color)
     img = ImageEnhance.Color(img).enhance(image_settings.get("saturation", 1.0))
-
-    # Apply Sharpness
     img = ImageEnhance.Sharpness(img).enhance(image_settings.get("sharpness", 1.0))
+
+    # After all enhancements, restore protected pixels
+    pixels = img.load()
+    width, height = img.size
+
+    for y in range(height):
+        for x in range(width):
+            if original_pixels[x, y] in protected_colors:
+                pixels[x, y] = original_pixels[x, y]
 
     return img
 
@@ -131,5 +144,5 @@ def take_screenshot(target, dimensions, timeout_ms=None):
 
     except Exception as e:
         logger.error(f"Failed to take screenshot: {str(e)}")
-    
+
     return image
